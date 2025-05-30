@@ -1,6 +1,5 @@
 MicroServices Setup
-
-## ///////////////////////////Eureka Server////////////////////////////// 
+///////////////////////////Eureka Server////////////////////////////// 
 
 -  Service Registry is a central directory where all microservices register themselves so they can be discovered and communicate with each other without hardcoding IPs or URLs.
 
