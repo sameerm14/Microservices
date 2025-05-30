@@ -1,0 +1,94 @@
+MicroServices Setup
+
+///////////////////////////Eureka Server////////////////////////////// 
+
+-  Service Registry is a central directory where all microservices register themselves so they can be discovered and communicate with each other without hardcoding IPs or URLs.
+
+a] Create a springproject
+b] Add dependency's EurekaServer, spring dev tools,
+c] Add @EnableEurekaServer in main class    
+d] In application file 
+ - add port 8761
+ - eureka.client.register-with-eureka=false 
+ - eureka.client.fetch-registry=false 
+e] Convert this application file to yml
+f] Try to access http://localhost:8761 
+
+
+2. Admin Server
+ - Spring Boot Admin Server is a web-based UI dashboard that lets you monitor and manage Spring Boot applications in real time. It provides insight into application health, metrics, environment, thread dumps, and more — all using Spring Boot Actuator endpoints under the hood.
+
+a] Create a springproject
+b] Add dependency's codecentricAdminServer, spring web,
+c] add @EnableAdminServer annotation to your main class
+d] In application file 
+ - Runs on default port 8080
+e] Convert this application file to yml
+e] Try to access http://localhost:8080
+
+
+3. ZipKin Server
+- Zipkin Server is a distributed tracing system that helps you trace and visualize the flow of requests across multiple microservices. It shows you how long each service call takes and helps diagnose latency issues or failures in a microservices architecture.
+
+a] https://search.maven.org/remote_content?g=io.zipkin&a=zipkin-server&v=LATEST&c=exec download this executable file 
+b] and open this using cmd java -jar file name
+c] Copy its address and paste in browser  
+d] http://127.0.0.1:9411/
+
+///////////////////////////////Eureka Client/////////////////////////////////
+
+- Any microservices that you are created has to be registered to Eureka server
+
+a] Create a spring project
+b] Add dependency's Eureka Discovery Client, Spring web, Spring actuator, Zipkin, Spring Devtools, Spring Boot Admin Client
+c] add @EnableDiscoveryClient annotation to your main class //Optional
+d] In application file 
+ - Set a port 8081
+ - spring.boot.admin.client.url=http://localhost:8080 // connects to admin server 
+ - management.endpoints.web.exposure.include=*
+e] Convert this application file to yml
+e] Try to access http://localhost:8081
+
+--------------------------------Now we use Api gateway to make an entrypoint to access all the microservices -----------------------------------
+
+
+////////////////////////////////API GateWay///////////////////////////////////////
+
+- It gives us a comman url and using that we can access the services
+
+a] Create a springproject
+b] Add dependency's ReactiveGateway, Eureka Discovery Client,
+c] add @EnableDiscoveryClient annotation to your main class //Optional
+d] In application file 
+e] Convert this application file to yml
+f]Than copy and paste the bellow  commands in yml file
+server:
+  port: 5555
+  
+spring:
+  application:
+    name: API-Gateway
+
+  cloud:
+    gateway:
+      routes:
+        - id: microservice-api-1
+          uri: lb://MICROSERVICES-1 --> give your service name 
+          predicates:
+            - Path=/micro1/**
+          filters:
+            - RewritePath=/micro1/(?<segment>.*), /${segment}
+        
+        - id: microservice-api-3
+          uri: lb://MICROSERVICES-2 --> give your service name
+          predicates:
+            - Path=/micro2/**
+          filters:
+            - RewritePath=/micro2/(?<segment>.*), /${segment}
+g] Access by 
+ - localhost:5555/micro1/yourendpoint --> for service 1
+ - localhost:5555/micro2/yourendpoint --> for service 2
+
+see the url is same for both the services
+
+
