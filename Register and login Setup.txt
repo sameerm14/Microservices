@@ -1,0 +1,175 @@
+////////////////////////////////////////////////////////Registration in spring security///////////////////////////////////////////
+
+1 ]  crete e entity and also a dto for user to register having name email password
+
+2 ] For password to be stored in db as encoded we have to certain steps  
+ 
+-> in user service were u are saving the user there add one dependency injection 
+
+@Autowired
+private PasswordEncoder passwordencoder; // by default spring ioc will not create this bean so for that we have to specifically tell to create this bean 
+
+-> goto your config file that is your spring urlsetup there  u will create this bean
+ 
+-> @Bean
+   public PasswordEncoder getpass(){
+return new BCryptPasswordEncoder();
+}
+
+this code will create bean
+
+
+than you can make ur password encoded and saved in db 
+
+ex String Epassword =  passwordencoder.encode(userDto.getPassword());
+
+user.setPassword(Epassword);
+
+
+///////////////////////////////////////////////////////login////////////////////////////////////////////////////////
+
+FLOW OF LOGIN
+
+step 1 ] User will submit the username and password
+
+step 2 ] AuthenticationManager Delegates  take that data and passes to DAOAuthenticationprovider
+
+step 3 ] Now UserDetailsService this is the interfae take the data from DAOauthrntication and this interface has method LoadUserdetails and check with db is this user present or not.
+
+step 4 ] If the user exists than it will return the object that contains username and password and gives back to were it calls means our DAOAythrntication is take the data and verify if it verifies
+
+5 ] User is exists Verification Complete
+			
+-------------------------------------------------------------
+
+1] create one login Dto contains username and password
+
+2 ] inside your login method in controller take the dto
+
+step 1 -> Creating a Authentication Manager
+
+we add dependency injection this controller class
+
+@Autowired
+private AuthenticationManager authmanager;
+
+for this ioc will not create a bean so that we have to manually tell spring to create a bean for this 
+
+so we goto our config file and create a method
+
+@Bean
+public AuthenticationManager authmanager(AuthenticationConfiguration config) throws Exception{
+
+return config.getAuthenticationManager();
+}
+
+-> than inside method use 
+
+public ResponseEntity<APIRespnse<String>> login(@RequestBody Logindto logidto ){
+
+UsernamePasswordAuthenticationToken  token = new UsernamePasswordAuthenticationToken(logidto.getUsername(), logindto.getPasword());
+try{
+authmanager.authenticate(token);//here we pass this to AuthenticationManager; and this passes the data to DAOAuthrnticationProvider
+
+step 2 -> we give this to DAOAuthrnticationprovider
+
+now we have to again create a method in config file
+
+@Bean 
+public AuthenticationProvider authProvider(){
+
+DaoAuthenticationProvider authprovider = new DaoAuthenticationprovider();
+
+now DaoAuthrntication is passes the data to Userdetails service
+
+
+a ] first services layer build one class customDetailService and implemnts this to UserDetailService
+
+iniside this class we have one abstract method we have to implement that
+
+@Autowired
+private Userrepository userrepo;
+
+@Override
+public UserDetails LoadUserByusername(String username) throws UsernameNotFoundException{
+
+User use1 = userrepo.findbyusername(username);
+
+return new org.springframework.security.core.userdetails.User(use1.getUsername(), use1.getPassword(), Collections.emptyList());
+ 
+}
+
+now go back to config file
+
+1] first we autowired the class that we created customDetailService
+
+@Autowired 
+private customDetailService custemerdetails;
+
+
+inside our authprovider 
+ 
+add bellow
+
+authprovider.setUserDetailservice(custemerdetails);
+authprovider.setPasswordEncoder(getpass());
+return authprovider;
+}
+ 
+
+now after this return the result goes back to were it is called and that is our controller inside login method
+
+in try block
+
+Authentication auth = authmanager.authenticate(token);
+
+if(auth.isAuthenticated){
+than we can perform login and return response;
+}
+}catch(Exception e){
+e.printtracktrace();
+}
+
+return failed or your return statemnet;
+}
+
+---------------------------------login by verifying role-------------------------------------
+
+first add the role column in userdto and user entity
+
+in config file inside securityfiletrchain 
+@Bean 
+public SecurityFilterChain securityConfig(HttpSecurity http) throws Exception{
+http.authorizeHttpRequests( req->{
+req.requestMatchers("/api/v1/login","/api/v1/register").permitAll().requestMathers("/api/v1/welcom").haRole("USER").anyRequest.authenticated();
+});
+
+hasrole()is added like this
+
+
+so when you are registering the user than setting up the role u should have set like this 
+
+user.setRole("ROLE_USER");
+
+2 ] now go to userdetails class in side the return paremeters and add -> Collections.singleton(new SimpleGrantedAuthority(use.getRole())
+
+@Override
+public UserDetails LoadUserByusername(String username) throws UsernameNotFoundException{
+
+User use1 = userrepo.findbyusername(username);
+
+return new org.springframework.security.core.userdetails.User(use1.getUsername(), use1.getPassword(), Collections.singleton(new SimpleGrantedAuthority(use.getRole()));
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

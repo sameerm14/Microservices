@@ -1,0 +1,51 @@
+Spring security Steps
+
+1. When added the dependencys in your project than by default all your urls are safe 
+
+steps to handel this ursl which can be accessible which can not
+
+1 ] Create a class called AuthConfig add Annotaions above the class @Configuration and @EnableWebSecurity
+
+2 ] Inside this class create a built in method this method allow all the urls to be access. 
+
+@Bean 
+public SecurityFilterChain securityConfig(HttpSecurity http) throws Exception{
+http.authorizeHttpRequests( req->{
+req.anyrequest().permitALL()// this will permit all the urls
+});
+
+return http.build();
+}
+
+3] if we have to enable only login register and other that we have to be open so we make change in this class
+
+ex: /api/v1/login, /api/v1/register
+
+@Bean 
+public SecurityFilterChain securityConfig(HttpSecurity http) throws Exception{
+http.authorizeHttpRequests( req->{
+req.requestMatchers("/api/v1/login","/api/v1/register").permitAll().anyRequest.authenticated();
+});
+
+return http.build();
+}
+
+
+
+4 ] if we have to give access depending on the role than also we modify
+
+ex: /api/v1/welcome // this url only accessible if the user has role USER
+@Bean 
+public SecurityFilterChain securityConfig(HttpSecurity http) throws Exception{
+http.authorizeHttpRequests( req->{
+req.requestMatchers("/api/v1/login","/api/v1/register").permitAll().requestMathers("/api/v1/welcom").haRole("USER").anyRequest.authenticated();
+});
+
+return http.build();
+}
+
+
+5 ]  If you are accessing url with postman or swagger than u have to modify the return type to access with them
+
+return http.csrf.disable().build();
+
