@@ -1,0 +1,163 @@
+First Download the dependency of jwt
+
+<dependency>
+    <groupId>com.auth0</groupId>
+    <artifactId>java-jwt</artifactId>
+    <version>4.4.0</version>
+</dependency>
+
+1. now Create a Service class called JWTService
+
+inside add this code for generating jwt token
+------------------------------------------------------------------------------------------------------------
+--> private static final String SECRET_KEY = "my-secret-key";
+	private static final long EXPIRATION_TIME = 86400000;
+	
+	public String generateToken(String userneame, String role) {
+		
+		return JWT.create()
+				.withSubject(userneame)
+				.withClaim("role", role)
+				.withIssuedAt(new Date())
+				.withExpiresAt(new Date(System.currentTimeMillis()+EXPIRATION_TIME))
+				.sign(Algorithm.HMAC256(SECRET_KEY));
+		
+}
+-------------------------------------------------------------------------------------------------------------
+
+2. Now When user login than he should get jwt token
+
+so in login method after verifying the user bellow add this code 
+
+== Previous code with out generating JWT token
+
+@PostMapping("/login")
+	public ResponseEntity<APIResponse<String>> loginUser(@RequestBody LoginDto logindto) {
+
+		UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(logindto.getUsername(),
+				logindto.getPassword());
+
+		APIResponse<String> response = new APIResponse<>();
+		try {
+			Authentication auth = authenticationmanager.authenticate(token);
+			if (auth.isAuthenticated()) {
+				response.setMessage("login Succeessfull");
+				response.setStatus(201);
+				response.setData("Logged");
+				return new ResponseEntity<>(response, HttpStatus.valueOf(response.getStatus()));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		response.setMessage("login Failed");
+		response.setStatus(201);
+		response.setData("Some thing went wrong");
+		return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+	}
+
+
+== after adding JWT Token code
+
+@PostMapping("/login")
+	public ResponseEntity<APIResponse<String>> loginUser(@RequestBody LoginDto logindto) {
+
+		UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(logindto.getUsername(),
+				logindto.getPassword());
+
+		APIResponse<String> response = new APIResponse<>();
+		try {
+			Authentication auth = authenticationmanager.authenticate(token);
+			if (auth.isAuthenticated()) {
+				
+				String jwttoken = jwtservice.generateToken(logindto.getUsername(),auth.getAuthorities().iterator().next().getAuthority());<-- this line only added
+				response.setMessage("login tui");
+				response.setStatus(201);
+				response.setData(jwttoken);<-- here data should be our token
+				return new ResponseEntity<>(response, HttpStatus.valueOf(response.getStatus()));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		response.setMessage("login nai");
+		response.setStatus(201);
+		response.setData("tam tam");
+		return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+	}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+2. JWT TOken Validation
+
+Suppose we have to open any url than we have to pass the token in the header and tha header goes to backend to if the token is valid than only he will access the url
+
+so 
+
+first we create a JWTFilter class it extends OncePerRequestsFilter
+
+implement the abstract method that is doFilterinternal
+
+NOTE: your url first  goes to securityconfig than it will send the url to jwtfilter to verify the token
+
+a] here is your jwtfilter classs code
+-----------------------------------------------------------------------------------------------------------------------------------------------
+@Autowired
+	private JWTService jwtservice;
+	
+	@Autowired
+	private CustomerUserDetailsService userdetails;
+	
+	@Override
+	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+			throws ServletException, IOException {
+
+		String authheader = request.getHeader("Authorization");
+		if(authheader != null && authheader.startsWith("Bearer ")) {
+			String jwt = authheader.substring(7);
+			String username = jwtservice.ValidateToken(jwt);
+			
+			if(username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+				var userdetail = userdetails.loadUserByUsername(username);
+				var authtoken = new  UsernamePasswordAuthenticationToken(userdetail, null,userdetail.getAuthorities());
+				authtoken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+				SecurityContextHolder.getContext().setAuthentication(authtoken);
+			}
+		}
+		filterChain.doFilter(request, response);
+		
+	}
+}
+--------------------------------------------------------------------------------------------------------------------------------------------
+
+b] add this method to validate token in jwtservice class
+
+public String ValidateToken(String token) {
+		return JWT.require(Algorithm.HMAC256(SECRET_KEY))
+				.build()
+				.verify(token)
+				.getSubject();
+	}
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+c] Add Two lines to your security config method
+
+add this line  
+.authenticationProvider(authProvider()).addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class);
+after your authentication code 
+req.requestMatchers(openUrl).permitAll().requestMatchers("/api/v1/welcome/message").hasRole("USER").anyRequest().authenticated();
+
+ex:
+http.csrf(csrf -> csrf.disable()).authorizeHttpRequests(
+				req->{
+					req.requestMatchers(openUrl).permitAll().requestMatchers("/api/v1/welcome/message").hasRole("USER").anyRequest().authenticated();
+				}).authenticationProvider(authProvider()).addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class);
+		return http.build();
+
+-----------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
