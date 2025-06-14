@@ -1,0 +1,115 @@
+For using s3 to store images or files 
+
+create one access key in aws
+
+create one bucket 
+
+add thease lines in propertys file
+
+aws.s3.bucket-name=hms-photos-property
+cloud.aws.region.static=ap-south-1
+cloud.aws.credentials.access-key=
+cloud.aws.credentials.secret-key=
+
+Add dependency 
+
+<dependency>
+<groupId>com.amazonaws</groupId>
+<artifactId>aws-java-sdk-s3</artifactId>
+<version>1.12.656</version> <!-- Use latest -->
+</dependency>
+1]
+
+in your config folder create a class called AmazonS3Config
+
+Like this 
+
+package com.propertyservice1.Config;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class AmazonS3Config {
+
+	@Value("${cloud.aws.region.static}")
+    private String region;
+
+    @Value("${cloud.aws.credentials.access-key}")
+    private String accessKey;
+
+    @Value("${cloud.aws.credentials.secret-key}")
+    private String secretKey;
+    
+    @Bean
+    public AmazonS3 amazonS3() {
+        BasicAWSCredentials credentials = new BasicAWSCredentials(accessKey, secretKey);
+        return AmazonS3ClientBuilder.standard()
+                .withRegion(region)
+                .withCredentials(new AWSStaticCredentialsProvider(credentials))
+                .build();
+    }
+}
+
+2]
+
+also create a service class called s3service
+
+package com.propertyservice1.Service;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+
+@Service
+public class S3service {
+	
+		@Autowired
+	    private AmazonS3 amazonS3;
+
+	    @Value("${aws.s3.bucket-name}")
+	    private String bucketName;
+
+	    public List<String> uploadFiles(MultipartFile[] files) {
+	        List<String> urls = new ArrayList<>();
+	        for (MultipartFile file : files) {
+	            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+	            try {
+	                ObjectMetadata metadata = new ObjectMetadata();
+	                metadata.setContentLength(file.getSize());
+	                amazonS3.putObject(bucketName, fileName, file.getInputStream(), metadata);
+	                String url = amazonS3.getUrl(bucketName, fileName).toString();
+	                urls.add(url);
+	            } catch (IOException e) {
+	                throw new RuntimeException("Error uploading file to S3", e);
+	            }
+	        }
+	        return urls;
+	    }
+}
+
+3]
+
+and in your service layer were you are using this s3 
+use this code 
+
+first do dependency injection of s3service
+
+List<String> fileUrls = s3service.uploadFiles(files);
+
+		for(String url : fileUrls) {
+			PropertyPhotos propphoto = new PropertyPhotos();
+			propphoto.setUrl(url);
+			propphoto.setProperty(prop);
+			photorepo.save(propphoto);
+		}
+
